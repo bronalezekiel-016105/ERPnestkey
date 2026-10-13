@@ -9,6 +9,8 @@ export const runtime = "nodejs";
 const updateSchema = z.object({
   label: z.string().trim().min(1).max(60).optional(),
   sizeLiters: z.number().positive().max(1000).optional(),
+  unit: z.string().trim().min(1).max(12).optional(),
+  category: z.string().trim().min(1).max(40).optional(),
   unitPrice: z.number().nonnegative().optional(),
   sortOrder: z.number().int().optional(),
   isActive: z.boolean().optional(),

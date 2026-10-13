@@ -8,6 +8,13 @@ import { AuthUser, Branch } from "@/lib/types";
 import { useToast } from "@/components/ui/Toast";
 import { SkeletonCardGrid } from "@/components/ui/Skeleton";
 
+interface StockOnHand {
+  productId: string;
+  label: string;
+  unit: string;
+  quantity: number;
+}
+
 interface ProfitReport {
   scope: "global" | "branch";
   range: { from: string; to: string };
@@ -15,12 +22,15 @@ interface ProfitReport {
   cashTotal: number;
   mpesaTotal: number;
   salesCount: number;
-  costOfGoods: number;
+  costOfGoodsSold: number;
+  costOfGoods: number; // alias, backward compat
+  stockPurchased: number;
   purchaseCount: number;
   grossProfit: number;
   expenses: number;
   expenseCount: number;
   netProfit: number;
+  stockOnHand: StockOnHand[];
 }
 
 function isoDay(d: Date): string {
@@ -75,6 +85,11 @@ export default function ReportsPage() {
   }, []);
 
   async function runReport(forcedBranch?: string) {
+    // F-03: guard against a reversed date range before hitting the API.
+    if (from && to && from > to) {
+      show("The start date must be on or before the end date.", "error");
+      return;
+    }
     setFetching(true);
     try {
       const b = forcedBranch ?? branchId;
@@ -105,7 +120,8 @@ export default function ReportsPage() {
       ["  Cash", report.cashTotal],
       ["  M-Pesa", report.mpesaTotal],
       ["Sales count", report.salesCount],
-      ["Cost of goods", report.costOfGoods],
+      ["Cost of goods sold", report.costOfGoodsSold],
+      ["Stock purchased", report.stockPurchased],
       ["Gross profit", report.grossProfit],
       ["Expenses", report.expenses],
       ["Estimated net profit", report.netProfit],
@@ -216,14 +232,19 @@ export default function ReportsPage() {
                 </p>
               </div>
               <div className="rounded-xl2 bg-white p-5 shadow-soft">
-                <p className="text-xs uppercase tracking-wide text-depth-500">Cost of goods</p>
-                <p className="mt-1 font-display text-2xl font-bold text-depth-900">{money(report.costOfGoods)}</p>
-                <p className="mt-1 text-xs text-depth-500">{report.purchaseCount} purchases in range</p>
+                <p className="text-xs uppercase tracking-wide text-depth-500">Cost of goods sold</p>
+                <p className="mt-1 font-display text-2xl font-bold text-depth-900">{money(report.costOfGoodsSold)}</p>
+                <p className="mt-1 text-xs text-depth-500">Only stock actually sold · avg. buying cost</p>
               </div>
               <div className="rounded-xl2 bg-white p-5 shadow-soft">
                 <p className="text-xs uppercase tracking-wide text-depth-500">Gross profit</p>
                 <p className="mt-1 font-display text-2xl font-bold text-flow-700">{money(report.grossProfit)}</p>
-                <p className="mt-1 text-xs text-depth-500">Revenue − cost of goods</p>
+                <p className="mt-1 text-xs text-depth-500">Revenue − cost of goods sold</p>
+              </div>
+              <div className="rounded-xl2 bg-white p-5 shadow-soft">
+                <p className="text-xs uppercase tracking-wide text-depth-500">Stock purchased</p>
+                <p className="mt-1 font-display text-2xl font-bold text-depth-900">{money(report.stockPurchased)}</p>
+                <p className="mt-1 text-xs text-depth-500">{report.purchaseCount} purchases · cash out to restock (not a cost until sold)</p>
               </div>
               <div className="rounded-xl2 bg-white p-5 shadow-soft">
                 <p className="text-xs uppercase tracking-wide text-depth-500">Expenses</p>
@@ -242,6 +263,38 @@ export default function ReportsPage() {
                 </p>
                 <p className="mt-1 text-xs text-depth-500">Gross profit − expenses</p>
               </div>
+            </div>
+
+            {/* Current stock on hand (F-02) */}
+            <div className="rounded-xl2 bg-white shadow-soft">
+              <div className="border-b border-depth-100 px-4 py-3">
+                <h2 className="font-display font-semibold text-depth-900">Current stock on hand</h2>
+                <p className="text-xs text-depth-500">
+                  Live balance per product {report.scope === "branch" ? "for this branch" : "across all branches"} —
+                  total purchased minus total sold to date.
+                </p>
+              </div>
+              {report.stockOnHand.length === 0 ? (
+                <p className="px-4 py-5 text-sm text-depth-500">
+                  No stock movements yet. Record purchases and sales to see live balances here.
+                </p>
+              ) : (
+                <ul className="divide-y divide-depth-100">
+                  {report.stockOnHand.map((s) => (
+                    <li key={s.productId} className="flex items-center justify-between px-4 py-3">
+                      <span className="font-medium text-depth-900">{s.label}</span>
+                      <span
+                        className={
+                          "font-mono text-sm font-semibold " +
+                          (s.quantity < 0 ? "text-alert-600" : "text-depth-800")
+                        }
+                      >
+                        {s.quantity.toLocaleString()} {s.unit}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <div className="flex items-center justify-between rounded-xl2 border border-depth-200 bg-sand-100 px-4 py-3">

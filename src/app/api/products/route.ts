@@ -12,7 +12,17 @@ export async function GET(req: NextRequest) {
   const auth = getAuth(req);
   if (!auth) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const products = await Product.find({ businessId: auth.businessId, isActive: true }).sort({ sortOrder: 1 }).lean();
+  // Admin/manager catalog screens pass ?includeInactive=1 so deactivated
+  // products are visible and can be reactivated (Test report F-04). The
+  // terminal and any sales flow keep the default of active-only.
+  const includeInactive = req.nextUrl.searchParams.get("includeInactive") === "1";
+  const canSeeInactive =
+    includeInactive && (auth.role === "SUPER_ADMIN" || auth.role === "BRANCH_MANAGER");
+
+  const filter: Record<string, unknown> = { businessId: auth.businessId };
+  if (!canSeeInactive) filter.isActive = true;
+
+  const products = await Product.find(filter).sort({ sortOrder: 1 }).lean();
   return NextResponse.json({ products });
 }
 

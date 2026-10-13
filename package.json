@@ -5,10 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p ${PORT:-3000}",
     "lint": "next lint",
-    "seed": "tsx scripts/seed.ts",
-    "migrate:multitenant": "tsx scripts/migrate-multitenant.ts"
+    "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
     "axios": "^1.7.7",

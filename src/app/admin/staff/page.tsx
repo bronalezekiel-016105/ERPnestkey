@@ -8,6 +8,7 @@ import { AuthUser, Branch, UserRole } from "@/lib/types";
 import { useToast } from "@/components/ui/Toast";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import EmptyState from "@/components/ui/EmptyState";
+import ConfirmButton from "@/components/ui/ConfirmButton";
 
 interface StaffMember {
   _id: string;
@@ -69,6 +70,19 @@ export default function StaffPage() {
   async function loadStaff() {
     const result = await apiFetch<{ users: StaffMember[] }>("/api/users");
     setStaff(result.users);
+  }
+
+  async function handleToggleActive(member: StaffMember) {
+    try {
+      await apiFetch("/api/users/" + member._id, {
+        method: "PATCH",
+        body: JSON.stringify({ isActive: !member.isActive }),
+      });
+      show(member.name + (member.isActive ? " deactivated" : " reactivated"), "success");
+      await loadStaff();
+    } catch (err) {
+      show(err instanceof ApiError ? err.message : "Could not update staff member", "error");
+    }
   }
 
   function validate(): string | null {
@@ -185,18 +199,46 @@ export default function StaffPage() {
             <ul className="divide-y divide-depth-100">
               {staff.map((s) => {
                 const branchName = branches.find((b) => b._id === s.branchId)?.branchName;
+                const isSelf = me?.id === s._id;
                 return (
-                  <li key={s._id} className="flex items-center justify-between px-4 py-3 animate-fade-up">
-                    <div>
-                      <p className="font-medium text-depth-900">{s.name}</p>
-                      <p className="text-xs text-depth-500">
+                  <li key={s._id} className="flex items-center justify-between gap-3 px-4 py-3 animate-fade-up">
+                    <div className="min-w-0">
+                      <p className="font-medium text-depth-900">
+                        {s.name}
+                        {!s.isActive && (
+                          <span className="ml-2 rounded-full bg-depth-100 px-2 py-0.5 text-xs font-medium text-depth-500">
+                            Inactive
+                          </span>
+                        )}
+                      </p>
+                      <p className="truncate text-xs text-depth-500">
                         {s.email}
                         {branchName ? " · " + branchName : ""}
                       </p>
                     </div>
-                    <span className={"rounded-full px-2.5 py-1 text-xs font-medium " + roleBadgeStyles[s.role]}>
-                      {s.role.replace("_", " ")}
-                    </span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className={"rounded-full px-2.5 py-1 text-xs font-medium " + roleBadgeStyles[s.role]}>
+                        {s.role.replace("_", " ")}
+                      </span>
+                      {!isSelf && (
+                        s.isActive ? (
+                          <ConfirmButton
+                            label="Deactivate"
+                            confirmLabel="Deactivate"
+                            variant="danger"
+                            onConfirm={() => handleToggleActive(s)}
+                            className="rounded-lg border border-depth-200 px-3 py-1.5 text-sm font-medium text-depth-700"
+                          />
+                        ) : (
+                          <button
+                            onClick={() => handleToggleActive(s)}
+                            className="rounded-lg border border-depth-200 px-3 py-1.5 text-sm font-medium text-depth-700"
+                          >
+                            Reactivate
+                          </button>
+                        )
+                      )}
+                    </div>
                   </li>
                 );
               })}

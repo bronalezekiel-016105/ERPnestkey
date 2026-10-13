@@ -8,6 +8,7 @@ import { AuthUser, Branch } from "@/lib/types";
 import { useToast } from "@/components/ui/Toast";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import EmptyState from "@/components/ui/EmptyState";
+import ConfirmButton from "@/components/ui/ConfirmButton";
 
 export default function BranchesPage() {
   const router = useRouter();
@@ -54,6 +55,23 @@ export default function BranchesPage() {
   async function loadBranches() {
     const result = await apiFetch<{ branches: Branch[] }>("/api/branches");
     setBranches(result.branches);
+  }
+
+  async function handleToggleActive(branch: Branch) {
+    const nextActive = branch.isActive === false; // currently inactive -> reactivate
+    try {
+      await apiFetch("/api/branches/" + branch._id, {
+        method: "PATCH",
+        body: JSON.stringify({ isActive: nextActive }),
+      });
+      show(
+        branch.branchName + (nextActive ? " reactivated" : " deactivated"),
+        "success"
+      );
+      await loadBranches();
+    } catch (err) {
+      show(err instanceof ApiError ? err.message : "Could not update branch", "error");
+    }
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -175,22 +193,50 @@ export default function BranchesPage() {
               />
             ) : (
               <ul className="divide-y divide-depth-100">
-                {branches.map((b) => (
-                  <li key={b._id} className="flex items-center justify-between px-4 py-3 animate-fade-up">
-                    <div>
-                      <p className="font-medium text-depth-900">{b.branchName}</p>
-                      <p className="text-xs text-depth-500">{b.locationCity}</p>
-                    </div>
-                    <span
-                      className={
-                        "rounded-full px-2.5 py-1 text-xs font-medium " +
-                        (b.managerId ? "bg-confirm-500/15 text-confirm-600" : "bg-cash-500/15 text-cash-600")
-                      }
-                    >
-                      {b.managerId ? "Has manager" : "No manager yet"}
-                    </span>
-                  </li>
-                ))}
+                {branches.map((b) => {
+                  const inactive = b.isActive === false;
+                  return (
+                    <li key={b._id} className="flex items-center justify-between gap-3 px-4 py-3 animate-fade-up">
+                      <div className="min-w-0">
+                        <p className="font-medium text-depth-900">
+                          {b.branchName}
+                          {inactive && (
+                            <span className="ml-2 rounded-full bg-depth-100 px-2 py-0.5 text-xs font-medium text-depth-500">
+                              Inactive
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-depth-500">{b.locationCity}</p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span
+                          className={
+                            "rounded-full px-2.5 py-1 text-xs font-medium " +
+                            (b.managerId ? "bg-confirm-500/15 text-confirm-600" : "bg-cash-500/15 text-cash-600")
+                          }
+                        >
+                          {b.managerId ? "Has manager" : "No manager yet"}
+                        </span>
+                        {inactive ? (
+                          <button
+                            onClick={() => handleToggleActive(b)}
+                            className="rounded-lg border border-depth-200 px-3 py-1.5 text-sm font-medium text-depth-700"
+                          >
+                            Reactivate
+                          </button>
+                        ) : (
+                          <ConfirmButton
+                            label="Deactivate"
+                            confirmLabel="Deactivate"
+                            variant="danger"
+                            onConfirm={() => handleToggleActive(b)}
+                            className="rounded-lg border border-depth-200 px-3 py-1.5 text-sm font-medium text-depth-700"
+                          />
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

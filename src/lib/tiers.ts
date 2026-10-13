@@ -66,7 +66,29 @@ export const DEFAULT_TIER: TierId = "STARTER";
 // Days of free trial a brand-new business gets on signup.
 export const TRIAL_DAYS = 14;
 
+// While a business is still on its free trial we let it open up to this many
+// branches regardless of its tier, so an owner can actually try the
+// multi-branch experience before committing to a paid plan. (Test report F-01:
+// a trialing STARTER must be able to create a 2nd branch.)
+export const TRIAL_MIN_BRANCHES = 2;
+
 export type SubscriptionStatus = "TRIALING" | "ACTIVE" | "PAST_DUE" | "SUSPENDED";
+
+/**
+ * The branch cap that actually applies to a business right now. During the
+ * trial we bump a low tier cap up to TRIAL_MIN_BRANCHES so trialing owners can
+ * test multi-branch; unlimited tiers (null) stay unlimited. Returns null for
+ * "unlimited".
+ */
+export function effectiveMaxBranches(
+  tier: TierId,
+  status: SubscriptionStatus
+): number | null {
+  const base = TIERS[tier].maxBranches;
+  if (base === null) return null; // unlimited regardless of trial
+  if (status === "TRIALING") return Math.max(base, TRIAL_MIN_BRANCHES);
+  return base;
+}
 
 export function formatKsh(amount: number): string {
   return "KSh " + amount.toLocaleString("en-KE");

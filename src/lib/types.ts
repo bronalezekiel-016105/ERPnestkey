@@ -7,6 +7,7 @@ export interface Branch {
   branchName: string;
   locationCity: string;
   managerId: string | null;
+  isActive?: boolean;
 }
 
 export interface AuthUser {

@@ -6,7 +6,7 @@ import { Branch } from "@/lib/server/models/Branch";
 import { User } from "@/lib/server/models/User";
 import { getAuth, requireRole } from "@/lib/server/auth";
 import { normalizeKenyanPhone } from "@/lib/server/phone";
-import { branchLimitError, userLimitError, loadTier } from "@/lib/server/subscription";
+import { branchLimitError, userLimitError, loadPlan } from "@/lib/server/subscription";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,13 +53,13 @@ export async function POST(req: NextRequest) {
   const { branchName, locationCity, manager } = parsed.data;
   const businessId = auth!.businessId;
 
-  const tier = await loadTier(businessId);
-  const branchErr = await branchLimitError(businessId, tier);
+  const tier = await loadPlan(businessId);
+  const branchErr = await branchLimitError(businessId, tier.tier, tier.status);
   if (branchErr) return NextResponse.json({ error: branchErr }, { status: 403 });
 
   let managerPhone: string | null = null;
   if (manager) {
-    const userErr = await userLimitError(businessId, tier);
+    const userErr = await userLimitError(businessId, tier.tier);
     if (userErr) return NextResponse.json({ error: userErr }, { status: 403 });
     try {
       managerPhone = normalizeKenyanPhone(manager.phoneNumber);

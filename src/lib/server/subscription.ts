@@ -8,10 +8,20 @@ import { Types } from "mongoose";
 import { Branch } from "@/lib/server/models/Branch";
 import { User } from "@/lib/server/models/User";
 import { Business, IBusiness } from "@/lib/server/models/Business";
-import { TIERS, type TierId } from "@/lib/tiers";
+import {
+  TIERS,
+  effectiveMaxBranches,
+  type TierId,
+  type SubscriptionStatus,
+} from "@/lib/tiers";
 
 export function tierOf(business: Pick<IBusiness, "tier">): TierId {
   return (business.tier as TierId) ?? "STARTER";
+}
+
+export interface BusinessPlan {
+  tier: TierId;
+  status: SubscriptionStatus;
 }
 
 /**
@@ -20,12 +30,18 @@ export function tierOf(business: Pick<IBusiness, "tier">): TierId {
  */
 export async function branchLimitError(
   businessId: Types.ObjectId | string,
-  tier: TierId
+  tier: TierId,
+  status: SubscriptionStatus = "ACTIVE"
 ): Promise<string | null> {
-  const max = TIERS[tier].maxBranches;
+  const max = effectiveMaxBranches(tier, status);
   if (max === null) return null; // unlimited
-  const count = await Branch.countDocuments({ businessId });
+  // Only count live branches toward the cap so a deactivated branch frees a
+  // slot (Test report F-06).
+  const count = await Branch.countDocuments({ businessId, isActive: { $ne: false } });
   if (count >= max) {
+    if (status === "TRIALING") {
+      return `Your free trial allows ${max} branch${max === 1 ? "" : "es"}. Upgrade to add more.`;
+    }
     return `Your ${TIERS[tier].name} plan allows ${max} branch${max === 1 ? "" : "es"}. Upgrade to add more.`;
   }
   return null;
@@ -41,7 +57,7 @@ export async function userLimitError(
 ): Promise<string | null> {
   const max = TIERS[tier].maxUsers;
   if (max === null) return null; // unlimited
-  const count = await User.countDocuments({ businessId });
+  const count = await User.countDocuments({ businessId, isActive: { $ne: false } });
   if (count >= max) {
     return `Your ${TIERS[tier].name} plan allows ${max} user accounts. Upgrade to add more.`;
   }
@@ -52,4 +68,21 @@ export async function userLimitError(
 export async function loadTier(businessId: Types.ObjectId | string): Promise<TierId> {
   const biz = await Business.findById(businessId).select("tier").lean();
   return tierOf({ tier: (biz?.tier as TierId) ?? "STARTER" } as IBusiness);
+}
+
+/**
+ * Load both the tier and the current subscription status for a tenant.
+ * Needed so limit checks can apply trial allowances (Test report F-01).
+ */
+export async function loadPlan(businessId: Types.ObjectId | string): Promise<BusinessPlan> {
+  const biz = await Business.findById(businessId).select("tier subscriptionStatus").lean();
+  return {
+    tier: (biz?.tier as TierId) ?? "STARTER",
+    status: (biz?.subscriptionStatus as SubscriptionStatus) ?? "TRIALING",
+  };
+}
+
+// Also count only live users toward the user cap (deactivated staff free a slot).
+export async function liveUserCount(businessId: Types.ObjectId | string): Promise<number> {
+  return User.countDocuments({ businessId, isActive: { $ne: false } });
 }

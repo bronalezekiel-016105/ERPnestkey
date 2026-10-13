@@ -68,14 +68,14 @@ export default function PlatformPage() {
     (async () => {
       let me: AuthUser;
       try {
-        const result = await apiFetch<{ user: AuthUser }>("/api/auth/me");
+        const result = await apiFetch<{ user: AuthUser }>('/api/auth/me');
         me = result.user;
       } catch {
-        router.replace("/login");
+        router.replace('/login');
         return;
       }
       if (!me.isPlatformAdmin) {
-        router.replace(me.role === "DELIVERY" ? "/terminal" : "/admin/dashboard");
+        router.replace(me.role === 'DELIVERY' ? '/terminal' : '/admin/dashboard');
         return;
       }
       setReady(true);
@@ -86,7 +86,7 @@ export default function PlatformPage() {
   }, []);
 
   async function load() {
-    const result = await apiFetch<{ businesses: BizRow[]; stats: Stats }>("/api/platform/businesses");
+    const result = await apiFetch<{ businesses: BizRow[]; stats: Stats }>('/api/platform/businesses');
     setRows(result.businesses);
     setStats(result.stats);
   }
@@ -94,15 +94,15 @@ export default function PlatformPage() {
   async function patch(id: string, update: Record<string, unknown>, label: string) {
     setSavingId(id);
     try {
-      await apiFetch("/api/platform/businesses/" + id, {
-        method: "PATCH",
+      await apiFetch('/api/platform/businesses/' + id, {
+        method: 'PATCH',
         body: JSON.stringify(update),
       });
-      show(label, "success");
+      show(label, 'success');
       await load();
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Update failed";
-      show(message, "error");
+      const message = err instanceof ApiError ? err.message : 'Update failed';
+      show(message, 'error');
     }
     setSavingId(null);
   }

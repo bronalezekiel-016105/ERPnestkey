@@ -21,6 +21,7 @@ export default function ProductsPage() {
 
   const [label, setLabel] = useState("");
   const [sizeLiters, setSizeLiters] = useState("");
+  const [unit, setUnit] = useState("L");
   const [unitPrice, setUnitPrice] = useState("");
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -46,7 +47,7 @@ export default function ProductsPage() {
   }, []);
 
   async function loadProducts() {
-    const result = await apiFetch<{ products: Product[] }>("/api/products");
+    const result = await apiFetch<{ products: Product[] }>("/api/products?includeInactive=1");
     setProducts(result.products);
   }
 
@@ -65,11 +66,12 @@ export default function ProductsPage() {
     try {
       await apiFetch("/api/products", {
         method: "POST",
-        body: JSON.stringify({ label: label.trim(), sizeLiters: size, unitPrice: price, sortOrder: products.length }),
+        body: JSON.stringify({ label: label.trim(), sizeLiters: size, unit: unit.trim() || "L", unitPrice: price, sortOrder: products.length }),
       });
       show(label.trim() + " added to the catalog", "success");
       setLabel("");
       setSizeLiters("");
+      setUnit("L");
       setUnitPrice("");
       await loadProducts();
     } catch (err) {
@@ -168,7 +170,7 @@ export default function ProductsPage() {
                 <li key={p._id} className="flex items-center justify-between gap-3 px-4 py-3 animate-fade-up">
                   <div>
                     <p className="font-medium text-depth-900">
-                      {p.label} <span className="text-depth-500">· {p.sizeLiters}L</span>
+                      {p.label} <span className="text-depth-500">· {p.sizeLiters} {p.unit || "L"}</span>
                     </p>
                     {editingId === p._id ? (
                       <div className="mt-1 flex items-center gap-2">
@@ -229,8 +231,8 @@ export default function ProductsPage() {
         </div>
 
         <form onSubmit={handleAdd} className="rounded-xl2 bg-white p-4 shadow-soft">
-          <h2 className="mb-3 font-display font-semibold text-depth-900">Add a new size</h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <h2 className="mb-3 font-display font-semibold text-depth-900">Add a new product</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             <div>
               <label className="mb-1 block text-xs font-medium text-depth-600" htmlFor="label">
                 Label
@@ -239,9 +241,15 @@ export default function ProductsPage() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-depth-600" htmlFor="size">
-                Size (litres)
+                Size / pack
               </label>
               <input id="size" type="number" min="0" step="0.1" value={sizeLiters} onChange={(e) => setSizeLiters(e.target.value)} placeholder="10" className="tap-target w-full rounded-xl border border-depth-200 px-3" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-depth-600" htmlFor="unit">
+                Unit
+              </label>
+              <input id="unit" value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="L, pcs, tray" className="tap-target w-full rounded-xl border border-depth-200 px-3" />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-depth-600" htmlFor="price">
@@ -251,7 +259,7 @@ export default function ProductsPage() {
             </div>
           </div>
           <button type="submit" disabled={saving} className="tap-target mt-4 w-full rounded-xl2 bg-flow-500 font-display font-semibold text-depth-950 disabled:opacity-60 sm:w-auto sm:px-8">
-            {saving ? "Adding…" : "Add size"}
+            {saving ? "Adding…" : "Add product"}
           </button>
         </form>
       </div>
